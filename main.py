@@ -7,6 +7,7 @@ import torch
 from torch.utils.data import DataLoader, random_split
 from pathlib import Path
 from tqdm import trange
+import os
 
 from immunotherapypredictionrnaseq.io import RunResults, RunConfig, setup_save_path
 from immunotherapypredictionrnaseq.tokenizer import TokenConfig
@@ -16,8 +17,8 @@ from immunotherapypredictionrnaseq.loss import TripletLoss
 from immunotherapypredictionrnaseq.utils import check_params_and_gradients
 
 
-def setup_model_and_data(device="cpu", transformer_dim=32, transformer_nhead=2, encoder_dropout=0.1):
-    config_path = Path("~").expanduser().joinpath("ImmunotherapyPredictionRNAseq").joinpath("token_config")
+def setup_model_and_data(device, transformer_dim, transformer_nhead, encoder_dropout, lair_path, n_samples):
+    config_path = Path.cwd().joinpath("token_config")
     assert config_path.exists() and config_path.is_dir()
     token_config = TokenConfig(config_path)
     token_config.load_config()
@@ -29,11 +30,12 @@ def setup_model_and_data(device="cpu", transformer_dim=32, transformer_nhead=2, 
         encoder_dropout=encoder_dropout)
     model = Model(encoder_config, token_config)
 
-    tcga_data = TCGAData("/storage/halu/lair", token_config)
-    tcga_data.load(n=0)
+    tcga_data = TCGAData(lair_path, token_config)
+    tcga_data.load(n=n_samples, cache=Path.cwd().joinpath("cache/tcga_data.npy"))
 
     device = torch.device(device)
     tcga_data.to(device)
+    print(tcga_data._data.shape)
     model = model.to(device).to(torch.float32)
 
     tcga_train, tcga_test = random_split(tcga_data, (0.8, 0.2), generator=torch.Generator().manual_seed(0))
@@ -78,7 +80,9 @@ def main(run_config: RunConfig):
         device=run_config.device,
         transformer_dim=run_config.transformer_dim,
         transformer_nhead=run_config.transformer_nhead,
-        encoder_dropout=run_config.encoder_dropout
+        encoder_dropout=run_config.encoder_dropout,
+        lair_path=run_config.lair_path,
+        n_samples=run_config.n_samples
     )
 
     # Ensure model is using float32
@@ -110,6 +114,7 @@ def main(run_config: RunConfig):
             shuffle=True,
             # num_workers=num_cpu_cores
         )
+
         losses = []
         for i, data in enumerate(data_loader):
             logger.info("new batch {}/{}".format(i, len(tcga_train)/run_config.batch_size))

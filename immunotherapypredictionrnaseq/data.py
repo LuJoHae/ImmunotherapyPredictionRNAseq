@@ -9,7 +9,7 @@ from typing import Iterable, Self
 import pyensembl
 import datalair
 import tcga
-import random
+from typing import Optional
 
 from immunotherapypredictionrnaseq.tokenizer import TokenConfig
 
@@ -90,40 +90,58 @@ class TCGAData(Dataset):
         self.var = None
         self.device = torch.device("cpu")
 
+
     def __len__(self):
         return len(self._data)
 
-    def load(self, n=0):
+
+    def load(self, n: int = 0, cache: Optional[Path] = None):
+        if cache is None:
+            data = self._load_from_lair(n)
+        elif cache.exists():
+            data = self._load_from_cache(cache, n)
+        else:
+            data = self._load_from_lair(n)
+            self._write_to_cache(cache, data)
+        self._data = torch.tensor(data, dtype=torch.float32).clone().detach()
+        self._is_loaded = True
+
+
+    def _write_to_cache(self, cache_file: Path, data: np.ndarray) -> None:
+        np.save(cache_file, data)
+
+
+    def _load_from_cache(self, cache_file: Path, n: int) -> np.ndarray:
+        return np.load(cache_file)[:n]
+
+
+    def _load_from_lair(self, n):
         adatas = []
         for filename, path in self._lair.get_dataset_filepaths(tcga.AllProjectsAdata()).items():
             adata = ad.read_h5ad(path, backed="r")
-            adata = adata[:, :] if n == 0 else adata[:, :n]#random.sample(range(adata.n_vars), n)]
+            adata = adata[:, :] if n == 0 else adata[:, :n]  # random.sample(range(adata.n_vars), n)]
             adata = adata.to_memory().T
             adata.X = adata.X.astype(np.int64)
             adata.obs["cancer_type"] = filename.split(".")[0]
             adatas.append(adata)
         adata_combined = ad.concat(adatas)
-
         self.genes = adata_combined.var_names.tolist()
         ensembl = pyensembl.EnsemblRelease(111)
-        gene_names = [(gene_from_id(gene_id.split('.')[0], ensembl))for gene_id in self.genes]
+        gene_names = [(gene_from_id(gene_id.split('.')[0], ensembl)) for gene_id in self.genes]
         adata_combined.var["gene_name"] = gene_names
         adata_combined = adata_combined[:, ~adata_combined.var["gene_name"].isna()]
         adata_combined.var.set_index("gene_name", inplace=True)
         adata_combined = adata_combined.copy()
         adata_combined.var_names_make_unique()
         adata_combined = adata_combined[:, self._token_config.genes.tolist()]
-
         adata_combined.X = adata_combined.X.astype(np.int64)
         cancer_codes = np.array([self._token_config.cancer_type_to_code[cancer_type] for cancer_type in
                                  adata_combined.obs["cancer_type"]]).reshape(-1, 1)
         assert isinstance(adata_combined.X, np.ndarray)
         assert cancer_codes.dtype == np.int64, cancer_codes.dtype
         assert adata_combined.X.dtype == np.int64, adata_combined.X.dtype
-        data = np.concat([cancer_codes, adata_combined.X], axis=1)
-        self._data = torch.tensor(data, dtype=torch.float32).clone().detach()
-        self._is_loaded = True
-
+        data = np.concatenate([cancer_codes, adata_combined.X], axis=1)
+        return data
 
     def __getitem__(self, idx: int | Iterable[int]) -> ContrastiveTriplet:
         if not self._is_loaded:
