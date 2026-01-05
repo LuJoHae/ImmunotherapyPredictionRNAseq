@@ -8,23 +8,23 @@ authors = [
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = ">=3.12,<3.15"
-torch = { version = "2.9.1+cu130", source = "pytorch" }
+python = ">=3.12,<3.13"
+# torch = { version = "2.9.1+cu130", source = "pytorch" }
 datalair = {git = "https://github.com/LuJoHae/datalair.git"}
 tcga = {git = "https://github.com/LuJoHae/TCGA.git"}
 icir = {git = "https://github.com/LuJoHae/ICI-response.git"}
 anndata = "^0.12.6"
-datasets = {extras = ["accelerate"], version = "^4.4.1"}
-transformers = "^4.57.1"
 notebook = "^7.4.7"
 scikit-learn = "^1.7.2"
 matplotlib = "^3.10.7"
 openpyxl = "^3.1.5"
 umap-learn = "^0.5.9.post2"
-wandb = "^0.23.0"
 duckdb = "^1.4.2"
 seaborn = "^0.13.2"
 python-dotenv = "^1.2.1"
+torch = "^2.9.1"
+numpy = "1.26"
+pydantic = "^2.12.5"
 
 [[tool.poetry.source]]
 name = "pytorch"

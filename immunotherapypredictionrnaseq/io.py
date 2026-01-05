@@ -62,10 +62,12 @@ class RunConfig:
     transformer_dim: int = 32
     transformer_nhead: int = 2
     encoder_dropout: float = 0.1
+    lair_path: Path = Path.cwd().joinpath("lair")
+    n_samples: int = 0
 
     def save(self, filepath: Path | str):
         with open(filepath, "w") as f:
-            json.dump(asdict(self), f, indent=4)
+            json.dump(asdict(self), f, indent=4, default=str)
 
     @classmethod
     def load(cls, filepath: Path | str):
@@ -139,7 +141,7 @@ def parser_from_dataclass(dc_cls) -> argparse.ArgumentParser:
 
 
 def setup_save_path() -> Path:
-    run_save_path = Path("~").expanduser().joinpath("ImmunotherapyPredictionRNAseq/runs").joinpath(
+    run_save_path = Path.cwd().joinpath("runs").joinpath(
         datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
     run_save_path.mkdir(parents=True, exist_ok=False)
     return run_save_path
