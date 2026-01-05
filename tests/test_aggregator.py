@@ -5,7 +5,7 @@ import torch
 
 
 def test_geneset_aggregator():
-    config_path = Path("~").expanduser().joinpath("ImmunotherapyPredictionRNAseq").joinpath("token_config")
+    config_path = Path.cwd().joinpath("token_config")
     assert config_path.exists() and config_path.is_dir()
     config = TokenConfig(config_path)
     config.load_config()

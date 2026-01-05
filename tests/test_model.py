@@ -5,7 +5,7 @@ from pathlib import Path
 
 
 def test_model():
-    config_path = Path("~").expanduser().joinpath("ImmunotherapyPredictionRNAseq").joinpath("token_config")
+    config_path = Path.cwd().joinpath("token_config")
     assert config_path.exists() and config_path.is_dir()
     token_config = TokenConfig(config_path)
     token_config.load_config()

@@ -9,6 +9,7 @@ from typing import Iterable, Self
 import pyensembl
 import datalair
 import tcga
+import random
 
 from immunotherapypredictionrnaseq.tokenizer import TokenConfig
 
@@ -96,7 +97,7 @@ class TCGAData(Dataset):
         adatas = []
         for filename, path in self._lair.get_dataset_filepaths(tcga.AllProjectsAdata()).items():
             adata = ad.read_h5ad(path, backed="r")
-            adata = adata[:,:] if n==0 else adata[:,:n]
+            adata = adata[:, :] if n == 0 else adata[:, :n]#random.sample(range(adata.n_vars), n)]
             adata = adata.to_memory().T
             adata.X = adata.X.astype(np.int64)
             adata.obs["cancer_type"] = filename.split(".")[0]
