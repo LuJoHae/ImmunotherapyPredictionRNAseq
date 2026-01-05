@@ -215,3 +215,6 @@ __marimo__/
 
 # PyTest
 .coverage
+
+# Lair
+lair
