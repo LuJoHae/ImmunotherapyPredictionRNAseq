@@ -1,0 +1,69 @@
+[project]
+name = "immunotherapypredictionrnaseq"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "Lukas Jonathan Haeuser", email = "lhaeuser@ethz.ch"}
+]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = ">=3.12,<3.15"
+torch = { version = "2.9.1+cu130", source = "pytorch" }
+datalair = {git = "https://github.com/LuJoHae/datalair.git"}
+tcga = {git = "https://github.com/LuJoHae/TCGA.git"}
+icir = {git = "https://github.com/LuJoHae/ICI-response.git"}
+anndata = "^0.12.6"
+datasets = {extras = ["accelerate"], version = "^4.4.1"}
+transformers = "^4.57.1"
+notebook = "^7.4.7"
+scikit-learn = "^1.7.2"
+matplotlib = "^3.10.7"
+openpyxl = "^3.1.5"
+umap-learn = "^0.5.9.post2"
+wandb = "^0.23.0"
+duckdb = "^1.4.2"
+seaborn = "^0.13.2"
+python-dotenv = "^1.2.1"
+
+[[tool.poetry.source]]
+name = "pytorch"
+url = "https://download.pytorch.org/whl/cu130"
+priority = "explicit"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[dependency-groups]
+dev = [
+    "pytest (>=9.0.1,<10.0.0)",
+    "pytest-cov (>=7.0.0,<8.0.0)",
+    "mypy (>=1.18.2,<2.0.0)",
+    "pandas-stubs (>=2.3.2.250926,<3.0.0.0)",
+    "ruff (>=0.14.6,<0.15.0)"
+]
+jupyter = [
+    "jupyter (>=1.1.1,<2.0.0)",
+    "notebook (>=7.4.7,<8.0.0)",
+    "ipykernel (>=7.1.0,<8.0.0)"
+]
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+
+select = [
+    "E", "F", "W",
+    "I",
+    "B",
+    "UP",
+    "C90",
+    "N",
+    "ANN",
+    "D",
+]
+
+extend-select = [
+    "RUF100", # unused noqa
+]
