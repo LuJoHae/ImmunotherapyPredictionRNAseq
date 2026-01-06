@@ -1,10 +1,10 @@
-
 import numpy as np
 import time
 import torch
 from torch.utils.data import DataLoader, random_split
 from pathlib import Path
 import random
+import pytest
 
 from immunotherapypredictionrnaseq.io import RunResults, RunConfig, setup_save_path
 from immunotherapypredictionrnaseq.tokenizer import TokenConfig
@@ -132,7 +132,7 @@ def test_integration_model_run():
         "lr": [1e-2, 1e-3, 1e-4],
         "batch_size": range(8, 32),
         "transformer_dim_per_head": range(1, 3),
-        "transformer_nhead": range(1, 4),
+        "transformer_nhead": range(1, 3),
         "encoder_dropout": [0.0, 0.1],
         "n_samples": range(20, 30)
     }
@@ -143,33 +143,19 @@ def test_integration_model_run():
         model_run(sample_run_config, n_epochs=3)
 
 
-def test_integration_model_convergence():
+@pytest.mark.slow
+def test_integration_model_run_long():
     run_config_space = {
-        "lr": [1e-1, 1e-2],
+        "lr": [1e-2, 1e-3, 1e-4],
         "batch_size": range(8, 32),
-        "transformer_dim_per_head": range(4, 6),
-        "transformer_nhead": range(3, 4),
-        "encoder_dropout": [0.0],
+        "transformer_dim_per_head": range(10, 13),
+        "transformer_nhead": range(3, 5),
+        "encoder_dropout": [0.0, 0.1],
         "n_samples": range(20, 30)
     }
     random.seed(0)
     sample_run_config = lambda: {key: random.choice(values) for key, values in run_config_space.items()}
 
-    for _ in range(3):
-        model_run(sample_run_config, n_epochs=20)
+    for _ in range(10):
+        model_run(sample_run_config, n_epochs=30)
 
-
-def test_integration_model_convergence_long():
-    run_config_space = {
-        "lr": [1e-1, 1e-2],
-        "batch_size": range(8, 32),
-        "transformer_dim_per_head": range(4, 6),
-        "transformer_nhead": range(3, 4),
-        "encoder_dropout": [0.0],
-        "n_samples": range(20, 30)
-    }
-    random.seed(42)
-    sample_run_config = lambda: {key: random.choice(values) for key, values in run_config_space.items()}
-
-    for _ in range(3):
-        model_run(sample_run_config, n_epochs=100)

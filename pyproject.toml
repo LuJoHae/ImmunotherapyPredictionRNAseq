@@ -67,3 +67,10 @@ select = [
 extend-select = [
     "RUF100", # unused noqa
 ]
+
+[tool.pytest.ini_options]
+markers = [
+    "slow: marks tests as slow",
+]
+testpaths = ["tests"]
+
