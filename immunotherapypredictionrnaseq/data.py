@@ -1,7 +1,6 @@
 import anndata as ad
 import numpy as np
 import torch
-import gc
 from torch.utils.data import Dataset
 from pathlib import Path
 from dataclasses import dataclass
@@ -10,6 +9,8 @@ import pyensembl
 import datalair
 import tcga
 from typing import Optional
+from sklearn.preprocessing import Normalizer, StandardScaler
+from scipy.stats import skew, kurtosis
 
 from immunotherapypredictionrnaseq.tokenizer import TokenConfig
 
@@ -89,21 +90,31 @@ class TCGAData(Dataset):
         self.genes = None
         self.var = None
         self.device = torch.device("cpu")
+        self._scaler = StandardScaler()
 
 
     def __len__(self):
         return len(self._data)
 
 
-    def load(self, n: int = 0, cache: Optional[Path] = None):
-        if cache is None:
-            data = self._load_from_lair(n)
-        elif cache.exists():
+    def load(self, n: int = 0, cache: Optional[Path] = None, alpha=1e7):
+        if cache and cache.exists():
             data = self._load_from_cache(cache, n)
         else:
-            data = self._load_from_lair(n)
-            self._write_to_cache(cache, data)
+            adata = self._load_from_lair(n)
+            x = Normalizer(norm="l1").fit_transform(adata.X.copy())
+            x = np.log1p(alpha * x)
+            x = StandardScaler().fit_transform(x)
+            adata = ad.AnnData(X=x, obs=adata.obs, var=adata.var)
+            cancer_codes = self._get_cancer_codes(adata)
+            data = np.concatenate([cancer_codes, adata.X], axis=1)
+            if cache:
+                self._write_to_cache(cache, data)
         self._data = torch.tensor(data, dtype=torch.float32).clone().detach()
+        assert np.isclose(self._data[:, 1:].flatten().mean(), 0)
+        assert np.isclose(self._data[:, 1:].flatten().var(), 1)
+        assert np.abs(skew(self._data[:, 1:].flatten())) <= 0.1
+        assert np.abs(kurtosis(self._data[:, 1:].flatten())) <= 1.5
         self._is_loaded = True
 
 
@@ -116,15 +127,17 @@ class TCGAData(Dataset):
 
 
     def _load_from_lair(self, n):
-        adatas = []
-        for filename, path in self._lair.get_dataset_filepaths(tcga.AllProjectsAdata()).items():
-            adata = ad.read_h5ad(path, backed="r")
-            adata = adata[:, :] if n == 0 else adata[:, :n]  # random.sample(range(adata.n_vars), n)]
-            adata = adata.to_memory().T
-            adata.X = adata.X.astype(np.int64)
-            adata.obs["cancer_type"] = filename.split(".")[0]
-            adatas.append(adata)
-        adata_combined = ad.concat(adatas)
+        adata_combined = self._load_adata_from_lair(n)
+        adata_combined = self._process_adata_metadata(adata_combined)
+        return adata_combined
+
+    def _get_cancer_codes(self, adata_combined):
+        cancer_codes = np.array([self._token_config.cancer_type_to_code[cancer_type] for cancer_type in
+                                 adata_combined.obs["cancer_type"]]).reshape(-1, 1)
+        assert cancer_codes.dtype == np.int64, cancer_codes.dtype
+        return cancer_codes
+
+    def _process_adata_metadata(self, adata_combined):
         self.genes = adata_combined.var_names.tolist()
         ensembl = pyensembl.EnsemblRelease(111)
         gene_names = [(gene_from_id(gene_id.split('.')[0], ensembl)) for gene_id in self.genes]
@@ -135,13 +148,21 @@ class TCGAData(Dataset):
         adata_combined.var_names_make_unique()
         adata_combined = adata_combined[:, self._token_config.genes.tolist()]
         adata_combined.X = adata_combined.X.astype(np.int64)
-        cancer_codes = np.array([self._token_config.cancer_type_to_code[cancer_type] for cancer_type in
-                                 adata_combined.obs["cancer_type"]]).reshape(-1, 1)
         assert isinstance(adata_combined.X, np.ndarray)
-        assert cancer_codes.dtype == np.int64, cancer_codes.dtype
         assert adata_combined.X.dtype == np.int64, adata_combined.X.dtype
-        data = np.concatenate([cancer_codes, adata_combined.X], axis=1)
-        return data
+        return adata_combined
+
+    def _load_adata_from_lair(self, n):
+        adatas = []
+        for filename, path in self._lair.get_dataset_filepaths(tcga.AllProjectsAdata()).items():
+            adata = ad.read_h5ad(path, backed="r")
+            adata = adata[:, :] if n == 0 else adata[:, :n]  # random.sample(range(adata.n_vars), n)]
+            adata = adata.to_memory().T
+            adata.X = adata.X.astype(np.int64)
+            adata.obs["cancer_type"] = filename.split(".")[0]
+            adatas.append(adata)
+        adata_combined = ad.concat(adatas)
+        return adata_combined
 
     def __getitem__(self, idx: int | Iterable[int]) -> ContrastiveTriplet:
         if not self._is_loaded:
