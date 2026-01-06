@@ -216,5 +216,7 @@ __marimo__/
 # PyTest
 .coverage
 
-# Lair
+# Project
 lair
+runs
+cache
