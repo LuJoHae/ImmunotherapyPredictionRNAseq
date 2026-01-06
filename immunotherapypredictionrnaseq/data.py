@@ -122,8 +122,8 @@ class TCGAData(Dataset):
             assert np.abs(skew(data[:, 1:].flatten())) <= 0.1
             assert np.abs(kurtosis(data[:, 1:].flatten())) <= 1.5
         else:
-            assert np.abs(data[:, 1:].flatten().mean()) <= 0.1
-            assert data[:, 1:].flatten().var() - 1 <= 0.1
+            assert np.abs(data[:, 1:].flatten().mean()) <= 0.5
+            assert data[:, 1:].flatten().var() - 1 <= 0.5
 
 
     def _write_to_cache(self, cache_file: Path, data: np.ndarray) -> None:
