@@ -17,7 +17,7 @@ from immunotherapypredictionrnaseq.loss import TripletLoss
 from immunotherapypredictionrnaseq.utils import check_params_and_gradients
 
 
-def setup_model_and_data(device, transformer_dim, transformer_nhead, encoder_dropout, lair_path, n_samples):
+def setup_model_and_data(device, transformer_dim, transformer_nhead, encoder_dropout, lair_path, n_samples, seed):
     config_path = Path.cwd().joinpath("token_config")
     assert config_path.exists() and config_path.is_dir()
     token_config = TokenConfig(config_path)
@@ -38,12 +38,12 @@ def setup_model_and_data(device, transformer_dim, transformer_nhead, encoder_dro
     print(tcga_data._data.shape)
     model = model.to(device).to(torch.float32)
 
-    tcga_train, tcga_test = random_split(tcga_data, (0.8, 0.2), generator=torch.Generator().manual_seed(0))
+    tcga_train, tcga_test = random_split(tcga_data, (0.8, 0.2), generator=torch.Generator().manual_seed(seed))
 
     return model, tcga_train, tcga_test
 
 
-def main(run_config: RunConfig):
+def main(run_config: RunConfig, seed):
     logging.basicConfig(
         level=logging.INFO,  # minimum level to log
         format="%(asctime)s [%(levelname)s] %(message)s",
@@ -59,7 +59,8 @@ def main(run_config: RunConfig):
         transformer_nhead=run_config.transformer_nhead,
         encoder_dropout=run_config.encoder_dropout,
         lair_path=run_config.lair_path,
-        n_samples=run_config.n_samples
+        n_samples=run_config.n_samples,
+        seed=seed
     )
 
     run_save_path = setup_save_path()
@@ -126,4 +127,5 @@ def main(run_config: RunConfig):
 
 
 if __name__ == "__main__":
-    main(RunConfig.from_args())
+    for seed in range(10):
+        main(RunConfig.from_args(), seed=seed)
