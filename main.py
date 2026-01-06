@@ -52,29 +52,6 @@ def main(run_config: RunConfig):
     logger.setLevel(logging.INFO)
     logger.info(run_config)
     logger.info("Torch version: {}".format(torch.__version__))
-    if "cuda" in run_config.device:
-        logger.info("CUDA is available: {}".format(torch.cuda.is_available()))
-        logger.info("Device name: {}".format(torch.cuda.get_device_name(run_config.device)))
-
-    # Set default tensor type to float32 explicitly
-    # torch.set_default_dtype(torch.FloatTensor)
-    # if torch.cuda.is_available():
-    #     torch.backends.cudnn.deterministic = True
-    #     torch.backends.cudnn.benchmark = False
-    torch.autograd.set_detect_anomaly(True)
-    torch.backends.cuda.enable_flash_sdp = False
-    torch.backends.cuda.enable_mem_efficient_sdp = False
-    torch.backends.cuda.enable_math_sdp = True  # Use the math (default) implementation
-
-    # Alternatively, or additionally, set the global flag
-    torch.nn.attention.allow_eninsistent_gaps = False
-
-    # Disable the two optimized kernels that can cause instability
-    torch.backends.cuda.enable_flash_sdp = False  # Disables FlashAttention (High-speed)
-    torch.backends.cuda.enable_mem_efficient_sdp = False  # Disables Memory-Efficient SDPA
-
-    # Force PyTorch to use the stable, but slower, mathematical implementation
-    torch.backends.cuda.enable_math_sdp = True
 
     model, tcga_train, tcga_test = setup_model_and_data(
         device=run_config.device,
@@ -84,9 +61,6 @@ def main(run_config: RunConfig):
         lair_path=run_config.lair_path,
         n_samples=run_config.n_samples
     )
-
-    # Ensure model is using float32
-    # model = model.float()
 
     run_save_path = setup_save_path()
     run_results = RunResults(run_save_path.joinpath("run_results.csv"))
@@ -99,8 +73,6 @@ def main(run_config: RunConfig):
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="min", factor=0.5, patience=run_config.patience)
     triplet_loss = TripletLoss()
 
-    # num_cpu_cores=32
-    # torch.set_num_threads(num_cpu_cores)
     for epoch in trange(run_config.n_epochs, desc="Epochs"):
 
         start = time.perf_counter()
@@ -111,8 +83,7 @@ def main(run_config: RunConfig):
             tcga_train,
             batch_size=run_config.batch_size,
             collate_fn=collate_triplets,
-            shuffle=True,
-            # num_workers=num_cpu_cores
+            shuffle=True
         )
 
         losses = []

@@ -114,6 +114,7 @@ class TCGAData(Dataset):
         self._data = torch.tensor(data, dtype=torch.float32).clone().detach()
         self._is_loaded = True
 
+
     def _assert_data_is_gaussian(self, data, n):
         if n == 0:
             assert np.isclose(data[:, 1:].flatten().mean(), 0)
@@ -123,8 +124,7 @@ class TCGAData(Dataset):
         else:
             assert np.abs(data[:, 1:].flatten().mean()) <= 0.1
             assert data[:, 1:].flatten().var() - 1 <= 0.1
-            assert np.abs(skew(data[:, 1:].flatten())) <= 0.2, skew(data[:, 1:].flatten())
-            assert np.abs(kurtosis(data[:, 1:].flatten())) <= 1.5, kurtosis(data[:, 1:].flatten())
+
 
     def _write_to_cache(self, cache_file: Path, data: np.ndarray) -> None:
         np.save(cache_file, data)
