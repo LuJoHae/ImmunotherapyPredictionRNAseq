@@ -117,8 +117,8 @@ class TCGAData(Dataset):
 
     def _assert_data_is_gaussian(self, data, n):
         if n == 0:
-            assert np.isclose(data[:, 1:].flatten().mean(), 0)
-            assert np.isclose(data[:, 1:].flatten().var(), 1)
+            assert np.isclose(data[:, 1:].flatten().mean(), 0), data[:, 1:].flatten().mean()
+            assert np.isclose(data[:, 1:].flatten().var(), 1), data[:, 1:].flatten().var()
             assert np.abs(skew(data[:, 1:].flatten())) <= 0.1
             assert np.abs(kurtosis(data[:, 1:].flatten())) <= 1.5
         else:
@@ -131,6 +131,8 @@ class TCGAData(Dataset):
 
 
     def _load_from_cache(self, cache_file: Path, n: int) -> np.ndarray:
+        if n == 0:
+            return np.load(cache_file)
         return np.load(cache_file)[:n]
 
 
