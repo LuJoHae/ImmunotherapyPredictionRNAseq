@@ -61,6 +61,7 @@ class RunConfig:
     patience: int = 5
     transformer_dim: int = 32
     transformer_nhead: int = 2
+    transformer_num_layers: int = 1
     encoder_dropout: float = 0.1
     lair_path: Path = Path.cwd().joinpath("lair")
     n_samples: int = 0

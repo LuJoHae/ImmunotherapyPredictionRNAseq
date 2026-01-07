@@ -10,10 +10,10 @@ from immunotherapypredictionrnaseq.projector import DisentangledProjector
 @dataclass
 class EncoderConfig:
     input_dim: int
-    encoder_dropout: float = 0.0
-    transformer_dim: int = 32
-    transformer_num_layers: int = 1
-    transformer_nhead: int = 2
+    encoder_dropout: float
+    transformer_dim: int
+    transformer_num_layers: int
+    transformer_nhead: int
 
 
 class Model(nn.Module):

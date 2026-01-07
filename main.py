@@ -17,7 +17,7 @@ from immunotherapypredictionrnaseq.loss import TripletLoss
 from immunotherapypredictionrnaseq.utils import check_params_and_gradients
 
 
-def setup_model_and_data(device, transformer_dim, transformer_nhead, encoder_dropout, lair_path, n_samples, seed):
+def setup_model_and_data(device, transformer_dim, transformer_nhead, transformer_num_layers, encoder_dropout, lair_path, n_samples, seed):
     config_path = Path.cwd().joinpath("token_config")
     assert config_path.exists() and config_path.is_dir()
     token_config = TokenConfig(config_path)
@@ -27,7 +27,9 @@ def setup_model_and_data(device, transformer_dim, transformer_nhead, encoder_dro
         input_dim=len(token_config.genes),
         transformer_dim=transformer_dim,
         transformer_nhead=transformer_nhead,
-        encoder_dropout=encoder_dropout)
+        transformer_num_layers=transformer_num_layers,
+        encoder_dropout=encoder_dropout
+    )
     model = Model(encoder_config, token_config)
 
     tcga_data = TCGAData(lair_path, token_config)
@@ -57,6 +59,7 @@ def main(run_config: RunConfig, seed):
         device=run_config.device,
         transformer_dim=run_config.transformer_dim,
         transformer_nhead=run_config.transformer_nhead,
+        transformer_num_layers=run_config.transformer_num_layers,
         encoder_dropout=run_config.encoder_dropout,
         lair_path=run_config.lair_path,
         n_samples=run_config.n_samples,
