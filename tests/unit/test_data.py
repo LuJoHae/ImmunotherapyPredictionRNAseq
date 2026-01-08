@@ -15,5 +15,5 @@ def test_tcga_data():
     token_config.load_config()
     tcga_data = TCGAData(lair_path, token_config)
     n = 10
-    tcga_data.load(n=n, cache=Path("./cache/tcga_data.npy"))
+    tcga_data.load(n=n, cache=Path("./cache"))
     _ = tcga_data[0:3]

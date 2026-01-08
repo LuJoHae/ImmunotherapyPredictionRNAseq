@@ -30,11 +30,11 @@ def setup_model_and_data(device, transformer_dim, transformer_nhead, transformer
     model = Model(encoder_config, token_config)
 
     tcga_data = TCGAData(lair_path, token_config)
-    tcga_data.load(n=n_samples, cache=Path.cwd().joinpath("cache/tcga_data.npy"))
+    tcga_data.load(n=n_samples, cache=Path.cwd().joinpath("cache"))
 
     device = torch.device(device)
     tcga_data.to(device)
-    print(tcga_data._data.shape)
+    print(tcga_data._tcga_data.shape)
     model = model.to(device).to(torch.float32)
 
     tcga_train, tcga_test = random_split(tcga_data, (0.8, 0.2), generator=torch.Generator().manual_seed(0))
