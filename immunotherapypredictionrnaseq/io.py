@@ -141,8 +141,8 @@ def parser_from_dataclass(dc_cls) -> argparse.ArgumentParser:
     return parser
 
 
-def setup_save_path() -> Path:
-    run_save_path = Path.cwd().joinpath("runs").joinpath(
+def setup_save_path(dir_path: Path) -> Path:
+    run_save_path = dir_path.joinpath(
         datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
     run_save_path.mkdir(parents=True, exist_ok=False)
     return run_save_path
