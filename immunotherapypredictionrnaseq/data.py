@@ -12,6 +12,7 @@ import datalair
 import tcga
 from typing import Optional
 from sklearn.preprocessing import Normalizer, StandardScaler
+from enum import Enum
 
 from immunotherapypredictionrnaseq.tokenizer import TokenConfig
 from icir.datasets import ImmuneCheckpointTherapyResponseProcessedGeneNormalizedClinicalDataNormalized as ICTR
@@ -69,14 +70,19 @@ def gene_from_id(gene_id, ensembl):
     return gene_name
 
 
+class TCGADataStatus(Enum):
+    SUPERVISED = "supervised"
+    SELFSUPERVISED = "selfsupervised"
+
+
 class TCGAData(Dataset):
     def __init__(
             self,
             lair_path: str | Path,
             token_config: TokenConfig,
-            additive_noise_level: float = 1,
-            multiplicative_noise_level: float = 0.10,
-            drop_rate: float = 0.05
+            additive_noise_level: float = 0.05,
+            multiplicative_noise_level: float = 0.0,
+            drop_rate: float = 0.00
     ):
         lair_path = Path(lair_path)
         assert lair_path.exists()
@@ -88,31 +94,35 @@ class TCGAData(Dataset):
         self._additive_noise_level = additive_noise_level
         self._multiplicative_noise_level = multiplicative_noise_level
         self._drop_rate = drop_rate
-        self._tcga_data = None
-        self._icir_data = None
+        self._data = None
+        self._full_data = None
         self.genes = None
         self.var = None
         self.device = torch.device("cpu")
         self._scaler = StandardScaler()
+        self._status = None
+        self._split_index = None    # number of samples in tcga (selfsupervised learning);
+        # after that index comes icir data (supervised learning)
+
 
     def __len__(self):
-        return len(self._tcga_data)
+        match self._status:
+            case TCGADataStatus.SELFSUPERVISED:
+                return len(self._data)
+            case TCGADataStatus.SUPERVISED:
+                return (~np.isnan(self._data[:, 0])).sum()
+
 
     def load(self, n: int = 0, cache: Optional[Path] = None, alpha=1e7):
         if cache and cache.exists() and cache.is_dir() and any(cache.iterdir()):
-            tcga_data = self._load_from_cache(cache.joinpath("tcga_data.npy"), n)
-            icir_data = self._load_from_cache(cache.joinpath("icir_data.npy"), 0)
-            response_data = self._load_from_cache(cache.joinpath("response_data.npy"), 0)
+            x = self._load_from_cache(cache.joinpath("x.npy"), n)
         else:
-            tcga_adata = self._load_tcga_data_from_lair(n)
+            tcga_adata = self._load_tcga_data_from_lair(n=0)
             assert tcga_adata.n_obs > 0
-            icir_adata = self._load_icir_data_from_lair()
-            try:
-                x = np.concatenate([tcga_adata.X.copy(), icir_adata.X.copy()], axis=0)
-            except Exception as e:
-                print(tcga_adata.X.copy().shape, icir_adata.X.copy().shape)
-                raise e
+            icir_adata = self._load_icir_data_from_lair(n=0)
+            x = np.concatenate([tcga_adata.X.copy(), icir_adata.X.copy()], axis=0, dtype=np.float32)
 
+            # fill NaNs (dataleakage; fix later!)
             col_medians = np.nanmedian(x, axis=0)
             inds = np.where(np.isnan(x))
             x[inds] = np.take(col_medians, inds[1])
@@ -120,23 +130,36 @@ class TCGAData(Dataset):
             x = Normalizer(norm="l1").fit_transform(x)
             x = np.log1p(alpha * x)
             x = StandardScaler().fit_transform(x)
-            tcga_adata = ad.AnnData(X=x[:tcga_adata.n_obs, :], obs=tcga_adata.obs, var=tcga_adata.var)
-            icir_adata = ad.AnnData(X=x[tcga_adata.n_obs:, :], obs=icir_adata.obs, var=icir_adata.var)
-            response_data = np.array(icir_adata.obs["response"].map(lambda response: 1 if response == "R" else 0)).astype(np.int64)
-            tcga_cancer_codes = self._get_cancer_codes(tcga_adata)
-            tcga_data = np.concatenate([tcga_cancer_codes, tcga_adata.X], axis=1)
-            icir_cancer_codes = self._get_cancer_codes(icir_adata)
-            icir_data = np.concatenate([icir_cancer_codes, icir_adata.X], axis=1)
+
+            self._split_index = tcga_adata.n_obs
+            response_data = np.concatenate([
+                np.repeat(np.nan, self._split_index),
+                np.array(icir_adata.obs["response"].map(
+                    lambda response: 1 if response == "R" else 0)
+                ).astype(np.float32)
+            ]).reshape(-1, 1)
+            cancer_codes = np.concatenate([
+                self._get_cancer_codes(tcga_adata), self._get_cancer_codes(icir_adata)
+            ], dtype=np.float32)
+            x = np.concatenate([response_data, cancer_codes, x], axis=1, dtype=np.float32)
             if cache:
-                self._write_to_cache(cache.joinpath("tcga_data.npy"), tcga_data)
-                self._write_to_cache(cache.joinpath("icir_data.npy"), icir_data)
-                self._write_to_cache(cache.joinpath("response_data.npy"), response_data)
-        if n != 0:
-            assert tcga_data.shape[0] == n, f"Expected {n} samples, got {tcga_data.shape[0]}"
-        self._tcga_data = torch.tensor(tcga_data, dtype=torch.float32).clone().detach()
-        self._icir_data = torch.tensor(icir_data, dtype=torch.float32).clone().detach()
-        self._response_data = torch.tensor(response_data, dtype=torch.float32).clone().detach()
+                self._write_to_cache(cache.joinpath("x.npy"), x)
+            if n != 0:
+                x = x[np.random.choice(x.shape[0], n, replace=False), :]
+        self._full_data = torch.tensor(x, dtype=torch.float32).clone().detach()
+        self.set_status(TCGADataStatus.SELFSUPERVISED)
         self._is_loaded = True
+
+    def set_status(self, status: TCGADataStatus) -> None:
+        match status:
+            case TCGADataStatus.SELFSUPERVISED:
+                self._data = self._full_data[:, 1:]
+            case TCGADataStatus.SUPERVISED:
+                self._data = self._full_data[self._split_index:, :]
+        self._status = status
+
+    def get_status(self) -> TCGADataStatus:
+        return self._status
 
     def _write_to_cache(self, cache_file: Path, data: np.ndarray) -> None:
         np.save(cache_file, data)
@@ -149,35 +172,39 @@ class TCGAData(Dataset):
     def __getitem__(self, idx: int | Iterable[int]) -> ContrastiveTriplet:
         if not self._is_loaded:
             raise RuntimeError("Call load() before using this method.")
-        idx_len = (
-            len(range(*idx.indices(self._tcga_data.shape[0]))) if isinstance(idx, slice) else
-            len(idx) if isinstance(idx, Iterable) else
-            None
-        )
-        random_idx = np.random.randint(0, len(self._tcga_data), size=idx_len)
-        x = ContrastiveTriplet(
-            anchor=self._tcga_data[idx],
-            positive=self.augment(self._tcga_data[idx]),
-            negative=self.augment(self._tcga_data[random_idx])
-        )
+        match self._status:
+            case TCGADataStatus.SELFSUPERVISED:
+                idx_len = (
+                    len(range(*idx.indices(self._data.shape[0]))) if isinstance(idx, slice) else
+                    len(idx) if isinstance(idx, Iterable) else
+                    None
+                )
+                random_idx = np.random.randint(0, len(self._data), size=idx_len)
+                x = ContrastiveTriplet(
+                    anchor=self._data[idx],
+                    positive=self.augment(self._data[idx]),
+                    negative=self.augment(self._data[random_idx])
+                )
+            case TCGADataStatus.SUPERVISED:
+                x = self._data[idx]
         return x
 
     def augment(self, x: torch.Tensor) -> torch.Tensor:
         assert x.device == self.device, "x.device={}; self.device={}".format(x.device, self.device)
-        add_noise = torch.distributions.Normal(loc=0, scale=self._additive_noise_level).sample(x.shape).to(self.device) \
-            if self._additive_noise_level > 0 else torch.tensor(0, device=self.device)
-        mult_noise = torch.distributions.Normal(loc=1, scale=self._multiplicative_noise_level).sample(x.shape).to(self.device) \
-            if self._multiplicative_noise_level > 0 else torch.tensor(1, device=self.device)
-        dropout = torch.distributions.Bernoulli(probs=1 - self._drop_rate).sample(x.shape).to(self.device) \
-            if self._drop_rate > 0 else torch.tensor(1, device=self.device)
-
+        add_noise = torch.distributions.Normal(loc=0, scale=self._additive_noise_level).sample(x.shape).to(self.device)
+        # mult_noise = torch.distributions.Normal(loc=1, scale=self._multiplicative_noise_level).sample(x.shape).to(self.device) \
+        #     if self._multiplicative_noise_level > 0 else torch.tensor(1, device=self.device)
+        # dropout = torch.distributions.Bernoulli(probs=1 - self._drop_rate).sample(x.shape).to(self.device) \
+        #     if self._drop_rate > 0 else torch.tensor(1, device=self.device)
         cancer_idx = (slice(None), 0) if x.ndim >= 2 else (0,)
-        add_noise[cancer_idx], mult_noise[cancer_idx], dropout[cancer_idx] = 0, 1, 1
-        x = torch.clamp(dropout * (mult_noise * x + add_noise), min=0.0)
+        # add_noise[cancer_idx], mult_noise[cancer_idx], dropout[cancer_idx] = 0, 1, 1
+        # x = torch.clamp(dropout * (mult_noise * x + add_noise), min=0.0)
+        add_noise[cancer_idx] = 0
+        x = x + add_noise
         return x
 
     def to(self, device: torch.device) -> None:
-        self._tcga_data = self._tcga_data.to(device)
+        self._data = self._data.to(device)
         self.device = device
 
     def _get_cancer_codes(self, adata_combined):
@@ -222,12 +249,12 @@ class TCGAData(Dataset):
             adata_combined = adata_combined[random.sample(list(adata_combined.obs_names), k=n), :].copy()
         return adata_combined.copy()
 
-    def _load_icir_data_from_lair(self):
-        adata_combined = self._load_icir_adata_from_lair()
+    def _load_icir_data_from_lair(self,  n):
+        adata_combined = self._load_icir_adata_from_lair(n)
         adata_combined = self._process_icir_adata_metadata(adata_combined)
         return adata_combined
 
-    def _load_icir_adata_from_lair(self):
+    def _load_icir_adata_from_lair(self, n):
         adatas = []
         cancer_types = {
             "Auslander.h5ad": "SKCM",
@@ -247,6 +274,7 @@ class TCGAData(Dataset):
         }
         for filename, path in self._lair.get_dataset_filepaths(ICTR()).items():
             adata = ad.read_h5ad(path, backed="r")
+            adata = adata[:, :] if n == 0 else adata[:, :n]
             adata = adata.to_memory()
             adata.X = adata.X.astype(np.int64)
             adata.obs["cancer_type"] = cancer_types[path.name]
