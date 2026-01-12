@@ -8,7 +8,8 @@ import pytest
 
 from immunotherapypredictionrnaseq.io import RunResults, RunConfig, setup_save_path
 from immunotherapypredictionrnaseq.tokenizer import TokenConfig
-from immunotherapypredictionrnaseq.model import Model, EncoderConfig
+from immunotherapypredictionrnaseq.model import Model
+from immunotherapypredictionrnaseq.encoder import EncoderConfig
 from immunotherapypredictionrnaseq.data import TCGAData, collate_triplets
 from immunotherapypredictionrnaseq.loss import TripletLoss
 from immunotherapypredictionrnaseq.utils import check_params_and_gradients
@@ -34,7 +35,6 @@ def setup_model_and_data(device, transformer_dim, transformer_nhead, transformer
 
     device = torch.device(device)
     tcga_data.to(device)
-    print(tcga_data._tcga_data.shape)
     model = model.to(device).to(torch.float32)
 
     tcga_train, tcga_test = random_split(tcga_data, (0.8, 0.2), generator=torch.Generator().manual_seed(0))
@@ -70,7 +70,7 @@ def model_run(sample_run_config, n_epochs):
         lair_path=run_config.lair_path,
         n_samples=run_config.n_samples
     )
-    run_save_path = setup_save_path()
+    run_save_path = setup_save_path(Path.cwd().joinpath("runs"))
     run_results = RunResults(run_save_path.joinpath("run_results.csv"))
     run_results.init_csv()
     run_config.save(run_save_path.joinpath("run_config.json"))

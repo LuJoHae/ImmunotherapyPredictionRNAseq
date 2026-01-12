@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import math
+from dataclasses import dataclass
 from torch.nn.modules.container import ModuleList
 from immunotherapypredictionrnaseq.embedder import GeneEmbedding
 import copy
@@ -54,3 +55,12 @@ class TransformerEncoder(nn.Module):
             x = self.layers[layer](x)
 
         return x
+
+
+@dataclass
+class EncoderConfig:
+    input_dim: int
+    encoder_dropout: float
+    transformer_dim: int
+    transformer_num_layers: int
+    transformer_nhead: int

@@ -1,19 +1,9 @@
 import torch.nn as nn
-from dataclasses import dataclass
 
 from immunotherapypredictionrnaseq.tokenizer import TokenConfig
 from immunotherapypredictionrnaseq.utils import fixseed
-from immunotherapypredictionrnaseq.encoder import TransformerEncoder
+from immunotherapypredictionrnaseq.encoder import TransformerEncoder, EncoderConfig
 from immunotherapypredictionrnaseq.projector import DisentangledProjector
-
-
-@dataclass
-class EncoderConfig:
-    input_dim: int
-    encoder_dropout: float
-    transformer_dim: int
-    transformer_num_layers: int
-    transformer_nhead: int
 
 
 class Model(nn.Module):
@@ -47,4 +37,4 @@ class Model(nn.Module):
         # output： B,L+2, (dataset:1, cancer:1, gene),C
         encoding = self.inputencoder(x)
         geneset_level_proj, cellpathway_level_proj = self.projector(encoding)
-        return (geneset_level_proj, cellpathway_level_proj, encoding)
+        return geneset_level_proj, cellpathway_level_proj, encoding

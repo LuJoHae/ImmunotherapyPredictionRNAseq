@@ -1,4 +1,5 @@
-from immunotherapypredictionrnaseq.model import Model, EncoderConfig
+from immunotherapypredictionrnaseq.model import Model
+from immunotherapypredictionrnaseq.encoder import EncoderConfig
 from immunotherapypredictionrnaseq.tokenizer import TokenConfig
 import torch
 from pathlib import Path

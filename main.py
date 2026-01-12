@@ -7,11 +7,11 @@ import torch
 from torch.utils.data import DataLoader, random_split
 from pathlib import Path
 from tqdm import trange
-import os
 
 from immunotherapypredictionrnaseq.io import RunResults, RunConfig, setup_save_path
 from immunotherapypredictionrnaseq.tokenizer import TokenConfig
-from immunotherapypredictionrnaseq.model import Model, EncoderConfig
+from immunotherapypredictionrnaseq.model import Model
+from immunotherapypredictionrnaseq.encoder import EncoderConfig
 from immunotherapypredictionrnaseq.data import TCGAData, collate_triplets
 from immunotherapypredictionrnaseq.loss import TripletLoss
 from immunotherapypredictionrnaseq.utils import check_params_and_gradients
