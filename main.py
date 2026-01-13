@@ -18,6 +18,7 @@ from immunotherapypredictionrnaseq.utils import check_params_and_gradients
 
 
 def main(run_config: RunConfig, seed):
+    torch.set_float32_matmul_precision('high')
     print_init_logging(run_config)
     models_save_path, run_results = setup_file_output(save_path=Path.cwd().joinpath("runs"), run_config=run_config)
     token_config = setup_token_config()
