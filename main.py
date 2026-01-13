@@ -66,6 +66,7 @@ def setup_model(run_config, token_config):
     model = Model(encoder_config, token_config)
     model = model.to(run_config.device).to(torch.float32)
 
+    model = torch.compile(model)
     return model
 
 
