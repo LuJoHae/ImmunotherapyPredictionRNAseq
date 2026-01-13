@@ -48,7 +48,7 @@ def model_run(sample_run_config, n_epochs):
     run_config = RunConfig(
         name="Automated_Test_Run",
         type="test",
-        device="cpu",
+        device=run_config_sample["device"],
         lr=run_config_sample["lr"],
         batch_size=run_config_sample["batch_size"],
         weight_decay=1e-6,
@@ -96,6 +96,11 @@ def model_run(sample_run_config, n_epochs):
         losses = []
         for i, data in enumerate(data_loader):
             optimizer.zero_grad()
+            assert data.anchor.device == torch.device(run_config_sample["device"]),(
+                "Data device {} does not match run config device {}.".format(
+                    data.anchor.device, run_config_sample["device"]
+                )
+            )
             y = data.apply(lambda x: model(x)[1])
             loss = triplet_loss(y)
             losses.append(loss.item())
@@ -117,6 +122,11 @@ def model_run(sample_run_config, n_epochs):
             )
             losses = []
             for data in data_loader:
+                assert data.anchor.device == torch.device(run_config_sample["device"]), (
+                    "Data device {} does not match run config device {}.".format(
+                        data.anchor.device, run_config_sample["device"]
+                    )
+                )
                 y = data.apply(lambda x: model(x)[1])
                 loss = triplet_loss(y)
                 losses.append(loss.item())
@@ -138,7 +148,26 @@ def test_integration_model_run():
         "transformer_dim_per_head": range(1, 3),
         "transformer_nhead": range(1, 3),
         "encoder_dropout": [0.0, 0.1],
-        "n_samples": range(20, 30)
+        "n_samples": range(20, 30),
+        "device": ["cpu"]
+    }
+    random.seed(0)
+    sample_run_config = lambda: {key: random.choice(values) for key, values in run_config_space.items()}
+
+    for _ in range(10):
+        model_run(sample_run_config, n_epochs=3)
+
+
+def test_integration_model_run_mps():
+    assert torch.backends.mps.is_available(), "MPS backend not available"
+    run_config_space = {
+        "lr": [1e-2, 1e-3, 1e-4],
+        "batch_size": range(8, 32),
+        "transformer_dim_per_head": range(1, 3),
+        "transformer_nhead": range(1, 3),
+        "encoder_dropout": [0.0, 0.1],
+        "n_samples": range(20, 30),
+        "device": ["mps:0"]
     }
     random.seed(0)
     sample_run_config = lambda: {key: random.choice(values) for key, values in run_config_space.items()}

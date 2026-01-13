@@ -53,7 +53,7 @@ class RunResults:
 class RunConfig:
     name: str = "Unnamed Run"
     type: Literal["full", "test"] = "test"
-    device: Literal["cpu", "cuda", "cuda:0"] = "cpu"
+    device: Literal["cpu", "cuda", "cuda:0", "mps:0"] = "cpu"
     lr: float = 1e-3
     batch_size: int = 64
     weight_decay: float = 1e-6
