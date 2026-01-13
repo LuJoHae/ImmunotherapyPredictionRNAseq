@@ -78,7 +78,7 @@ def setup_dataset(run_config, token_config, seed):
     tcga_data.load(n=run_config.n_samples, cache=Path.cwd().joinpath("cache"))
     device = torch.device(run_config.device)
     tcga_data.to(device)
-    tcga_train, tcga_test = random_split(tcga_data, (0.8, 0.2), generator=torch.Generator().manual_seed(seed))
+    tcga_train, tcga_test = tcga_data.train_test_split()
     return tcga_test, tcga_train
 
 
