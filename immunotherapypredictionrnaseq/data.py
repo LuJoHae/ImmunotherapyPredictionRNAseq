@@ -1,5 +1,5 @@
 import random
-
+import copy
 import anndata as ad
 import numpy as np
 import torch
@@ -292,3 +292,17 @@ class TCGAData(Dataset):
         adata_combined = adata_combined[:, sorted(list(adata_combined.var_names))]
         assert adata_combined.shape == (937, 912)
         return adata_combined
+
+    def train_test_split(self, ratio=0.8, seed=0):
+
+        train_dataset = copy.deepcopy(self)
+        test_dataset = copy.deepcopy(self)
+
+        rng = np.random.default_rng(seed=seed)
+        indices = rng.permutation(len(self._full_data))
+        n_split = int(np.round(ratio * len(self._full_data)))
+
+        train_dataset._full_data = train_dataset._full_data[indices[:n_split]]
+        test_dataset._full_data = test_dataset._full_data[indices[n_split:]]
+
+        return train_dataset, test_dataset

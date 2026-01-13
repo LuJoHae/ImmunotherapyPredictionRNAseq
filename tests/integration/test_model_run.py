@@ -37,7 +37,7 @@ def setup_model_and_data(device, transformer_dim, transformer_nhead, transformer
     tcga_data.to(device)
     model = model.to(device).to(torch.float32)
 
-    tcga_train, tcga_test = random_split(tcga_data, (0.8, 0.2), generator=torch.Generator().manual_seed(0))
+    tcga_train, tcga_test = tcga_data.train_test_split()
 
     return model, tcga_train, tcga_test
 
