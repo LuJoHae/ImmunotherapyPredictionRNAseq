@@ -4,7 +4,7 @@ import numpy as np
 import time
 import logging
 import torch
-from torch.utils.data import DataLoader, random_split
+from torch.utils.data import DataLoader
 from pathlib import Path
 from tqdm import trange
 
