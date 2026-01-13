@@ -44,6 +44,7 @@ def main(run_config: RunConfig, seed):
         scheduler.step(run_results.loss_test_mean)
         run_results.lr = optimizer.param_groups[0]["lr"]
         run_results.runtime = time.perf_counter() - start
+        logger.info("Epoch {}/{} finished in {} seconds.".format(epoch, run_config.n_epochs, run_results.runtime))
         run_results.save_row()
         torch.save(model.state_dict(), models_save_path.joinpath("{epoch:04d}.pth".format(epoch=epoch)))
 
@@ -102,7 +103,7 @@ def setup_file_output(save_path: Path, run_config: RunConfig) -> tuple[Path, Run
 
 def test_loop(model, run_config, run_results, tcga_test, triplet_loss):
     logger.info("Start testing...")
-    start = time.perf_counter()
+    start_total = time.perf_counter()
     model.eval()
     with torch.no_grad():
         data_loader = DataLoader(
@@ -112,18 +113,24 @@ def test_loop(model, run_config, run_results, tcga_test, triplet_loss):
             shuffle=True
         )
         losses = []
-        for data in data_loader:
+        number_of_batches = int(np.ceil(len(tcga_test) / run_config.batch_size))
+        for i, data in enumerate(data_loader, start=1):
+            start = time.perf_counter()
             y = data.apply(lambda x: model(x)[1])
             loss = triplet_loss(y)
             losses.append(loss.item())
+            end = time.perf_counter()
+            logger.info("batch {}/{} finished in {} seconds.".format(i, number_of_batches, end - start))
         run_results.loss_test_mean = np.mean(losses)
         run_results.loss_test_std = np.std(losses)
         del losses
-    end = time.perf_counter()
-    logger.info("Finished testing in {} seconds.".format(end - start))
+    end_total = time.perf_counter()
+    logger.info("Finished testing in {} seconds.".format(end_total - start_total))
 
 
 def train_loop(model, optimizer, run_config, run_results, tcga_train, triplet_loss):
+    logger.info("Start training...")
+    start_total = time.perf_counter()
     model.train()
     data_loader = DataLoader(
         tcga_train,
@@ -149,6 +156,8 @@ def train_loop(model, optimizer, run_config, run_results, tcga_train, triplet_lo
     run_results.loss_train_mean = np.mean(losses)
     run_results.loss_train_std = np.std(losses)
     del losses
+    end_total = time.perf_counter()
+    logger.info("Finished testing in {} seconds.".format(end_total - start_total))
 
 
 if __name__ == "__main__":
