@@ -65,8 +65,11 @@ def setup_model(run_config, token_config):
     )
     model = Model(encoder_config, token_config)
     model = model.to(run_config.device).to(torch.float32)
-
+    logger.info("Start compiling model...")
+    start = time.perf_counter()
     model = torch.compile(model)
+    end = time.perf_counter()
+    logger.info("Finished compiling model in {} seconds.".format(end - start))
     return model
 
 
@@ -96,6 +99,8 @@ def setup_file_output(save_path: Path, run_config: RunConfig) -> tuple[Path, Run
 
 
 def test_loop(model, run_config, run_results, tcga_test, triplet_loss):
+    logger.info("Start testing...")
+    start = time.perf_counter()
     model.eval()
     with torch.no_grad():
         data_loader = DataLoader(
@@ -112,6 +117,8 @@ def test_loop(model, run_config, run_results, tcga_test, triplet_loss):
         run_results.loss_test_mean = np.mean(losses)
         run_results.loss_test_std = np.std(losses)
         del losses
+    end = time.perf_counter()
+    logger.info("Finished testing in {} seconds.".format(end - start))
 
 
 def train_loop(model, optimizer, run_config, run_results, tcga_train, triplet_loss):
@@ -123,8 +130,10 @@ def train_loop(model, optimizer, run_config, run_results, tcga_train, triplet_lo
         shuffle=True
     )
     losses = []
-    for i, data in enumerate(data_loader):
-        logger.info("new batch {}/{}".format(i, len(tcga_train) / run_config.batch_size))
+    number_of_batches = int(np.ceil(len(tcga_train) / run_config.batch_size))
+    for i, data in enumerate(data_loader, start=1):
+        logger.info("new batch {}/{}".format(i, number_of_batches))
+        start = time.perf_counter()
         optimizer.zero_grad()
         y = data.apply(lambda x: model(x)[1])
         loss = triplet_loss(y)
@@ -133,6 +142,8 @@ def train_loop(model, optimizer, run_config, run_results, tcga_train, triplet_lo
         check_params_and_gradients(model)
         optimizer.step()
         check_params_and_gradients(model)
+        end = time.perf_counter()
+        logger.info("batch {}/{} finished in {} seconds.".format(i, number_of_batches, end - start))
     run_results.loss_train_mean = np.mean(losses)
     run_results.loss_train_std = np.std(losses)
     del losses
