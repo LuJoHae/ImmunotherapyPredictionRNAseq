@@ -7,6 +7,7 @@ import torch
 from torch.utils.data import DataLoader
 from pathlib import Path
 from tqdm import trange
+import torch._inductor.config as inductor_config
 
 from immunotherapypredictionrnaseq.io import RunResults, RunConfig, setup_save_path
 from immunotherapypredictionrnaseq.tokenizer import TokenConfig
@@ -151,6 +152,7 @@ def train_loop(model, optimizer, run_config, run_results, tcga_train, triplet_lo
 
 
 if __name__ == "__main__":
+    inductor_config.render_viewer = False
     logging.basicConfig(
         level=logging.INFO,  # minimum level to log
         format="%(asctime)s [%(levelname)s] %(message)s",
