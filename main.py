@@ -47,6 +47,8 @@ def main(run_config: RunConfig, seed):
         logger.info("Epoch {}/{} finished in {} seconds.".format(epoch, run_config.n_epochs, run_results.runtime))
         run_results.save_row()
         torch.save(model.state_dict(), models_save_path.joinpath("{epoch:04d}.pth".format(epoch=epoch)))
+        if run_results.lr <= 1e-8:
+            break
 
 
 def setup_token_config():
