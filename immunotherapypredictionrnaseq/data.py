@@ -163,6 +163,7 @@ class TCGAData(Dataset):
                 assert self._full_data.shape[0] > 0
                 self._data = self._full_data[~np.isnan(self._full_data[:, 0].numpy()), :]
                 assert self._data.shape[0] > 0, "No samples found in supervised data."
+        self.to(self.device)
 
     def get_status(self) -> TCGADataStatus:
         return self._status
