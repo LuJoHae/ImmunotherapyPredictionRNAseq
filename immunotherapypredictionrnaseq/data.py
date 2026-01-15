@@ -305,4 +305,7 @@ class TCGAData(Dataset):
         train_dataset._full_data = train_dataset._full_data[indices[:n_split]]
         test_dataset._full_data = test_dataset._full_data[indices[n_split:]]
 
+        train_dataset.set_data()
+        test_dataset.set_data()
+
         return train_dataset, test_dataset
