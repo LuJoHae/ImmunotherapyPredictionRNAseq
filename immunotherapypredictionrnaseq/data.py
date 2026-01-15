@@ -1,3 +1,4 @@
+import logging
 import random
 import copy
 import anndata as ad
@@ -82,7 +83,8 @@ class TCGAData(Dataset):
             token_config: TokenConfig,
             additive_noise_level: float = 0.05,
             multiplicative_noise_level: float = 0.0,
-            drop_rate: float = 0.00
+            drop_rate: float = 0.00,
+            mode: str = "pretrain",
     ):
         lair_path = Path(lair_path)
         assert lair_path.exists()
@@ -100,22 +102,19 @@ class TCGAData(Dataset):
         self.var = None
         self.device = torch.device("cpu")
         self._scaler = StandardScaler()
-        self._status = None
+        self._status = TCGADataStatus.SUPERVISED if mode == "finetune" else TCGADataStatus.SELFSUPERVISED
         self._split_index = None    # number of samples in tcga (selfsupervised learning);
         # after that index comes icir data (supervised learning)
 
 
     def __len__(self):
-        match self._status:
-            case TCGADataStatus.SELFSUPERVISED:
-                return len(self._data)
-            case TCGADataStatus.SUPERVISED:
-                return (~np.isnan(self._data[:, 0])).sum()
+        return len(self._data)
 
 
     def load(self, n: int = 0, cache: Optional[Path] = None, alpha=1e7):
         if cache and cache.exists() and cache.is_dir() and any(cache.iterdir()):
-            x = self._load_from_cache(cache.joinpath("x.npy"), n)
+            from_back = True if self._status == TCGADataStatus.SUPERVISED else False
+            x = self._load_from_cache(cache.joinpath("x.npy"), n, from_back=from_back)
         else:
             tcga_adata = self._load_tcga_data_from_lair(n=0)
             assert tcga_adata.n_obs > 0
@@ -131,9 +130,8 @@ class TCGAData(Dataset):
             x = np.log1p(alpha * x)
             x = StandardScaler().fit_transform(x)
 
-            self._split_index = tcga_adata.n_obs
             response_data = np.concatenate([
-                np.repeat(np.nan, self._split_index),
+                np.repeat(np.nan, tcga_adata.n_obs),
                 np.array(icir_adata.obs["response"].map(
                     lambda response: 1 if response == "R" else 0)
                 ).astype(np.float32)
@@ -146,17 +144,25 @@ class TCGAData(Dataset):
                 self._write_to_cache(cache.joinpath("x.npy"), x)
             if n != 0:
                 x = x[np.random.choice(x.shape[0], n, replace=False), :]
+        assert x.shape[0] > 0, x.shape
         self._full_data = torch.tensor(x, dtype=torch.float32).clone().detach()
-        self.set_status(TCGADataStatus.SELFSUPERVISED)
+        assert self._full_data.shape[0] > 0
+        self.set_data()
         self._is_loaded = True
 
     def set_status(self, status: TCGADataStatus) -> None:
-        match status:
+        self._status = status
+
+    def set_data(self):
+        assert self._full_data.shape[0] > 0, self._full_data.shape[0]
+        match self._status:
             case TCGADataStatus.SELFSUPERVISED:
                 self._data = self._full_data[:, 1:]
             case TCGADataStatus.SUPERVISED:
-                self._data = self._full_data[self._split_index:, :]
-        self._status = status
+                logging.info("Loading supervised data. NaNs will be removed removed. {}".format(self._full_data.shape))
+                assert self._full_data.shape[0] > 0
+                self._data = self._full_data[~np.isnan(self._full_data[:, 0].numpy()), :]
+                assert self._data.shape[0] > 0, "No samples found in supervised data."
 
     def get_status(self) -> TCGADataStatus:
         return self._status
@@ -164,9 +170,11 @@ class TCGAData(Dataset):
     def _write_to_cache(self, cache_file: Path, data: np.ndarray) -> None:
         np.save(cache_file, data)
 
-    def _load_from_cache(self, cache_file: Path, n: int) -> np.ndarray:
+    def _load_from_cache(self, cache_file: Path, n: int, from_back: bool) -> np.ndarray:
         if n == 0:
             return np.load(cache_file)
+        if from_back:
+            return np.load(cache_file)[-n:]
         return np.load(cache_file)[:n]
 
     def __getitem__(self, idx: int | Iterable[int]) -> ContrastiveTriplet:

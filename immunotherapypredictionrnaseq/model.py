@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 
 from immunotherapypredictionrnaseq.tokenizer import TokenConfig
@@ -38,3 +39,21 @@ class Model(nn.Module):
         encoding = self.inputencoder(x)
         geneset_level_proj, cellpathway_level_proj = self.projector(encoding)
         return geneset_level_proj, cellpathway_level_proj, encoding
+
+
+class ModelWithHead(nn.Module):
+    def __init__(self, base_model, input_dim=45, hidden_dim=16):
+        super(ModelWithHead, self).__init__()
+        self.base_model = base_model
+        self.head = nn.Sequential(
+            torch.nn.BatchNorm1d(input_dim),
+            nn.Linear(input_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, 2)
+        )
+        self.log_temperature = nn.Parameter(torch.log(torch.tensor(1.0)))
+
+    def forward(self, x):
+        features = self.base_model(x)[1]
+        logits = self.head(features) / torch.exp(self.log_temperature)
+        return logits

@@ -53,6 +53,7 @@ class RunResults:
 class RunConfig:
     name: str = "Unnamed Run"
     type: Literal["full", "test"] = "test"
+    mode: Literal["pretrain", "finetune"] = "pretrain"
     device: Literal["cpu", "cuda", "cuda:0", "mps:0"] = "cpu"
     lr: float = 1e-3
     batch_size: int = 64
@@ -64,6 +65,7 @@ class RunConfig:
     transformer_num_layers: int = 1
     encoder_dropout: float = 0.1
     lair_path: Path = Path.cwd().joinpath("lair")
+    weight_loading_datetime: str = ""
     n_samples: int = 0
 
     def save(self, filepath: Path | str):
