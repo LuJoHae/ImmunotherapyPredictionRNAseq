@@ -163,7 +163,6 @@ def train_loop(model, optimizer, run_config, run_results, tcga_train, triplet_lo
 
 
 if __name__ == "__main__":
-    inductor_config.render_viewer = False
     logging.basicConfig(
         level=logging.INFO,  # minimum level to log
         format="%(asctime)s [%(levelname)s] %(message)s",
