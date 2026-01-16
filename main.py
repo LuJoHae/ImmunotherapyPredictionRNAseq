@@ -121,7 +121,7 @@ def setup_model(run_config, token_config):
 def setup_dataset(run_config, token_config):
     logger.info("Start setting up dataset...")
     data = TCGAData(
-        run_config=run_config.lair_path,
+        lair_path=run_config.lair_path,
         token_config=token_config,
         noise_anchor=run_config.noise_anchor,
         noise_positive=run_config.noise_positive,
