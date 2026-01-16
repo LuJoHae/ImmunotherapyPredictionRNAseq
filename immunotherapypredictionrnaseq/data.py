@@ -308,7 +308,7 @@ class TCGAData(Dataset):
         return train_dataset, test_dataset
 
 
-def augment(self, x: torch.Tensor, additive_noise_level: float) -> torch.Tensor:
+def augment(x: torch.Tensor, additive_noise_level: float) -> torch.Tensor:
     add_noise = torch.distributions.Normal(loc=0, scale=additive_noise_level).sample(x.shape).to(x.device)
     cancer_idx = (slice(None), 0) if x.ndim >= 2 else (0,)
     add_noise[cancer_idx] = 0
