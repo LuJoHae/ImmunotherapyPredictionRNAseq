@@ -32,8 +32,7 @@ def finetune(run_config: RunConfig, seed):
         param.requires_grad = False
     model_with_head = torch.compile(ModelWithHead(base_model=model, input_dim=45, hidden_dim=16))
     tcga_train, tcga_test = setup_dataset(run_config=run_config, token_config=token_config)
-    assert tcga_train._data.shape!=tcga_test._data.shape
-
+    assert tcga_train._data.shape != tcga_test._data.shape
     optimizer = torch.optim.Adam(model_with_head.parameters(), lr=run_config.lr, weight_decay=run_config.weight_decay)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
         optimizer, mode="min", factor=0.5, patience=run_config.patience
