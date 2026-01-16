@@ -104,6 +104,7 @@ class TCGAData(Dataset):
         self._scaler = StandardScaler()
         self._status = TCGADataStatus.SUPERVISED if mode == "finetune" else TCGADataStatus.SELFSUPERVISED
         self._split_index = None    # number of samples in tcga (selfsupervised learning);
+        self.only_gide = False
         # after that index comes icir data (supervised learning)
 
 
@@ -282,6 +283,8 @@ class TCGAData(Dataset):
             "VanAllen.h5ad": "SKCM"
         }
         for filename, path in self._lair.get_dataset_filepaths(ICTR()).items():
+            if self.only_gide is True and filename != "Gide.h5ad":
+                continue
             adata = ad.read_h5ad(path, backed="r")
             adata = adata[:, :] if n == 0 else adata[:, :n]
             adata = adata.to_memory()

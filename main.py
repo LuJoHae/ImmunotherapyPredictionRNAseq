@@ -123,6 +123,9 @@ def setup_dataset(run_config, token_config):
     data = TCGAData(run_config.lair_path, token_config)
     data.set_status(status=TCGADataStatus.SUPERVISED if run_config.mode == "finetune" else TCGADataStatus.SELFSUPERVISED)
     logger.info("Dataset status set to {}.".format(data._status))
+    if run_config.only_gide is True:
+        data.only_gide = True
+        logger.info("Only GIDE samples are used.")
     data.load(n=run_config.n_samples, cache=Path.cwd().joinpath("cache"))
     data.set_data()
     data.to(torch.device(run_config.device))

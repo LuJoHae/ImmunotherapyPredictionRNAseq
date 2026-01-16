@@ -67,6 +67,7 @@ class RunConfig:
     lair_path: Path = Path.cwd().joinpath("lair")
     weight_loading_datetime: str = ""
     n_samples: int = 0
+    only_gide: bool = False
 
     def save(self, filepath: Path | str):
         with open(filepath, "w") as f:
