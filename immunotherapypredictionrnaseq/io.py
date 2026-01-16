@@ -68,6 +68,9 @@ class RunConfig:
     weight_loading_datetime: str = ""
     n_samples: int = 0
     only_gide: bool = False
+    noise_anchor: float = 0.0
+    noise_positive: float = 0.05
+    noise_negative: float = 0.05
 
     def save(self, filepath: Path | str):
         with open(filepath, "w") as f:

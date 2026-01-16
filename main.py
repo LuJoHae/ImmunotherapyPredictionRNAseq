@@ -120,7 +120,13 @@ def setup_model(run_config, token_config):
 
 def setup_dataset(run_config, token_config):
     logger.info("Start setting up dataset...")
-    data = TCGAData(run_config.lair_path, token_config)
+    data = TCGAData(
+        run_config=run_config.lair_path,
+        token_config=token_config,
+        noise_anchor=run_config.noise_anchor,
+        noise_positive=run_config.noise_positive,
+        noise_negative=run_config.noise_negative
+    )
     data.set_status(status=TCGADataStatus.SUPERVISED if run_config.mode == "finetune" else TCGADataStatus.SELFSUPERVISED)
     logger.info("Dataset status set to {}.".format(data._status))
     if run_config.only_gide is True:
@@ -129,6 +135,7 @@ def setup_dataset(run_config, token_config):
     data.load(n=run_config.n_samples, cache=Path.cwd().joinpath("cache"))
     data.set_data()
     data.to(torch.device(run_config.device))
+    logger.info("Finished setting up dataset:\n{}".format(TCGAData))
     train, test = data.train_test_split()
     return train, test
 
