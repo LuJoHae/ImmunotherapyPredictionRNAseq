@@ -81,9 +81,9 @@ class TCGAData(Dataset):
             self,
             lair_path: str | Path,
             token_config: TokenConfig,
-            additive_noise_level: float = 0.05,
-            multiplicative_noise_level: float = 0.0,
-            drop_rate: float = 0.00,
+            noise_anchor: float = 0.0,
+            noise_positive: float = 0.05,
+            noise_negative: float = 0.05,
             mode: str = "pretrain",
     ):
         lair_path = Path(lair_path)
@@ -93,9 +93,9 @@ class TCGAData(Dataset):
         self._lair = lair
         self._token_config = token_config
         self._is_loaded = False
-        self._additive_noise_level = additive_noise_level
-        self._multiplicative_noise_level = multiplicative_noise_level
-        self._drop_rate = drop_rate
+        self.noise_anchor = noise_anchor
+        self.noise_positive = noise_positive
+        self.noise_negative = noise_negative
         self._data = None
         self._full_data = None
         self.genes = None
@@ -103,9 +103,7 @@ class TCGAData(Dataset):
         self.device = torch.device("cpu")
         self._scaler = StandardScaler()
         self._status = TCGADataStatus.SUPERVISED if mode == "finetune" else TCGADataStatus.SELFSUPERVISED
-        self._split_index = None    # number of samples in tcga (selfsupervised learning);
         self.only_gide = False
-        # after that index comes icir data (supervised learning)
 
 
     def __len__(self):
@@ -191,27 +189,14 @@ class TCGAData(Dataset):
                 )
                 random_idx = np.random.randint(0, len(self._data), size=idx_len)
                 x = ContrastiveTriplet(
-                    anchor=self._data[idx],
-                    positive=self.augment(self._data[idx]),
-                    negative=self.augment(self._data[random_idx])
+                    anchor=augment(self._data[idx], self.noise_anchor),
+                    positive=augment(self._data[idx], self.noise_positive),
+                    negative=augment(self._data[random_idx], self.noise_negative)
                 )
             case TCGADataStatus.SUPERVISED:
                 x = self._data[idx]
         return x
 
-    def augment(self, x: torch.Tensor) -> torch.Tensor:
-        assert x.device == self.device, "x.device={}; self.device={}".format(x.device, self.device)
-        add_noise = torch.distributions.Normal(loc=0, scale=self._additive_noise_level).sample(x.shape).to(self.device)
-        # mult_noise = torch.distributions.Normal(loc=1, scale=self._multiplicative_noise_level).sample(x.shape).to(self.device) \
-        #     if self._multiplicative_noise_level > 0 else torch.tensor(1, device=self.device)
-        # dropout = torch.distributions.Bernoulli(probs=1 - self._drop_rate).sample(x.shape).to(self.device) \
-        #     if self._drop_rate > 0 else torch.tensor(1, device=self.device)
-        cancer_idx = (slice(None), 0) if x.ndim >= 2 else (0,)
-        # add_noise[cancer_idx], mult_noise[cancer_idx], dropout[cancer_idx] = 0, 1, 1
-        # x = torch.clamp(dropout * (mult_noise * x + add_noise), min=0.0)
-        add_noise[cancer_idx] = 0
-        x = x + add_noise
-        return x
 
     def to(self, device: torch.device) -> None:
         self._data = self._data.to(device)
@@ -321,3 +306,11 @@ class TCGAData(Dataset):
         test_dataset.set_data()
 
         return train_dataset, test_dataset
+
+
+def augment(self, x: torch.Tensor, additive_noise_level: float) -> torch.Tensor:
+    add_noise = torch.distributions.Normal(loc=0, scale=additive_noise_level).sample(x.shape).to(x.device)
+    cancer_idx = (slice(None), 0) if x.ndim >= 2 else (0,)
+    add_noise[cancer_idx] = 0
+    x = x + add_noise
+    return x
