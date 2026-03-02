@@ -110,14 +110,18 @@ class TCGAData(Dataset):
         return len(self._data)
 
 
-    def load(self, n: int = 0, cache: Optional[Path] = None, alpha=1e7):
+    def load(self, n: int = 0, cache: Optional[Path] = None, alpha=1e7, use_genentech_data=False):
         if cache and cache.exists() and cache.is_dir() and any(cache.iterdir()):
             from_back = True if self._status == TCGADataStatus.SUPERVISED else False
             x = self._load_from_cache(cache.joinpath("x.npy"), n, from_back=from_back)
         else:
             tcga_adata = self._load_tcga_data_from_lair(n=0)
             assert tcga_adata.n_obs > 0
-            icir_adata = self._load_icir_data_from_lair(n=0)
+            if use_genentech_data:
+                icir_adata = self._load_genentech_adata_from_lair()
+            else:
+                icir_adata = self._load_icir_data_from_lair(n=0)
+
             x = np.concatenate([tcga_adata.X.copy(), icir_adata.X.copy()], axis=0, dtype=np.float32)
 
             # fill NaNs (dataleakage; fix later!)
@@ -289,6 +293,16 @@ class TCGAData(Dataset):
         adata_combined = adata_combined[:, sorted(list(adata_combined.var_names))]
         assert adata_combined.shape == (937, 912)
         return adata_combined
+
+    def _load_genentech_adata_from_lair(self):
+        ensembl = pyensembl.EnsemblRelease(111, "human")
+        adata = ad.read_h5ad(self._lair.get_path() /" genentech/EGAD00001006631-counts.h5ad")
+        adata.obs["cancer_type"] = adata.obs["CANCER_TYPE"]
+        adata.obs["response"] = adata.obs["ORR"].map({"PD": "NR", "SD": "NR", "PR": "R", "CR": "R"})
+        adata.var["gene_name"] = [ensembl.gene_name_of_gene_id(id) for id in adata.var_names]
+        adata = adata[:, list(adata.var["gene_name"].isin(self._token_config.genes))]
+        assert adata.shape == (454, 912)
+        return adata
 
     def train_test_split(self, ratio=0.8, seed=0):
 

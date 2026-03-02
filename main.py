@@ -132,7 +132,7 @@ def setup_dataset(run_config, token_config):
     if run_config.only_gide is True:
         data.only_gide = True
         logger.info("Only GIDE samples are used.")
-    data.load(n=run_config.n_samples, cache=Path.cwd().joinpath("cache"))
+    data.load(n=run_config.n_samples, cache=Path.cwd().joinpath("cache"), use_genentech_data=True)
     data.set_data()
     data.to(torch.device(run_config.device))
     logger.info("Finished setting up dataset:\n{}".format(TCGAData))
